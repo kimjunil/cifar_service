@@ -1,0 +1,47 @@
+name: BentoML Packing and Deploy
+
+on: 
+  workflow_dispatch:
+    inputs:
+      model_path:
+        description: 'model path (gs://xxxx.h5)'     
+        required: true
+      model_tag:
+        description: 'model tag'     
+        required: true
+        
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Docker Build & Push Action
+        uses: mr-smithers-excellent/docker-build-push@v5.6
+        with:
+          image: cifar_classifier_bento
+          tags: ${{ github.event.inputs.model_tag }}
+          registry: ghcr.io
+          dockerfile: Dockerfile
+          directory: .
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.PACKAGE_REGISTRY_ACCESS_TOKEN}}
+          buildArgs: MODEL_PATH_ARG=${{ github.event.inputs.model_path }}, SLACK_WEBHOOK_URL_ARG=${{ secrets.SLACK_WEBHOOK_URL}}
+          addLatest: true
+      - name: Setup Kustomize
+        uses: imranismail/setup-kustomize@v1
+      - name: Checkout cifar_argocd
+        uses: actions/checkout@v2
+        with:
+          token: ${{ secrets.PACKAGE_REGISTRY_ACCESS_TOKEN}}
+          repository: kimjunil/cifar_argocd
+          path: cifar_argocd
+      - name: Clone config
+        run: |
+          cd cifar_argocd/overlays/dev
+          kustomize edit set image ghcr.io/kimjunil/cifar_argocd:${{ github.event.inputs.model_tag }}
+          git config --global user.name ${{ github.repository_owner }}
+          git config --global user.email "iam@junil.kim"
+          git commit -am 'Publish new version ${{ github.event.inputs.model_tag }} to dev'
+          git push || echo 'no changes'
