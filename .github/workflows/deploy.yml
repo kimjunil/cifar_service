@@ -40,7 +40,7 @@ jobs:
       - name: Clone config
         run: |
           cd cifar_argocd/overlays/dev
-          kustomize edit set image ghcr.io/kimjunil/cifar_argocd:${{ github.event.inputs.model_tag }}
+          kustomize edit set image ghcr.io/kimjunil/cifar_classifier_bento:${{ github.event.inputs.model_tag }}
           git config --global user.name ${{ github.repository_owner }}
           git config --global user.email "iam@junil.kim"
           git commit -am 'Publish new version ${{ github.event.inputs.model_tag }} to dev'
